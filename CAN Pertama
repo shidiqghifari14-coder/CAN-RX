@@ -1,0 +1,94 @@
+#include <ESP32_CAN.h>
+#include <circular_buffer.h>
+#include <isotp.h>
+
+//define address  
+#define Motor_Controller 0xEF // Hexa dari 239
+#define BMS 0xF4              // Hexa dari 244
+#define CCS 0xE5              // Hexa dari 229
+#define BCA 0x50              // Hexa dari 80
+
+//define message id 
+#define Message_2_CAN_ID 0x18FF50E5 // CCS out, BCA in
+
+bool newDataReceived = false;
+uint8_t rxBuffer[8] = {0};
+
+//Byte 1 2
+uint8_t Vsetmsb;
+uint8_t Vsetlsb;
+uint16_t Vset;
+//Byte 3 4
+uint8_t Isetmsb;
+uint8_t Isetlsb;
+uint16_t Iset;
+//Byte 5 6
+uint8_t control_1;
+uint8_t control_2;
+
+uint16_t data[2][8];
+ESP32_CAN<RX_SIZE_256, TX_SIZE_16> Can0;
+
+void nigerCallback(const CAN_message_t &msg) {
+  if (msg.id == Message_2_CAN_ID) {
+    for (uint8_t i = 0; i < msg.len && i < 8; i++) {
+      rxBuffer[i] = msg.buf[i];
+    }
+    newDataReceived = true;
+  }
+
+  //  if(msg.id == Message_1_CAN_ID){
+  //   Serial.print(" Can Started");
+  //   Serial.print(" ID: "); Serial.print(msg.id, HEX);
+  //   {
+  //   for ( uint8_t i = 0; i < msg.len; i++ ) { 
+  //       Serial.print(msg.buf[i], HEX); Serial.print(" ");
+  //       data[0][i] = msg.buf[i];
+
+  //     }Serial.println();
+  //   }
+
+  //   // uint8_t msb = (Vset >> 8) & 255; 
+  //   // uint8_t lsb = vset;
+  // }
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  
+  Serial.println("CAN Bus Started Recieve");
+  Serial.println("Initializing CAN...");
+  Can0.setRX(21);
+  Can0.setTX(22);
+  Can0.onReceive(nigerCallback);
+  
+  Can0.begin();          
+    Can0.setBaudRate(250000);
+    Serial.println("CAN Initialization SUCCESS");
+}
+
+void loop() {
+   Vsetmsb = data[0][0]; 
+   Vsetlsb = data[0][1];
+   Vset = (Vsetmsb << 8) | Vsetlsb;  
+    Isetmsb = data[0][2];
+    Isetlsb = data[0][3];
+    Iset = (Isetmsb << 8) | Isetlsb;
+
+     control_1 = data[0][4];
+     control_2 = data[0][5];
+   if(control_1 == 0){
+      Serial.print("Start charging");
+     }
+       else{
+       Serial.print("Battery protection, Stop Charging");
+       }
+
+   if(control_2 == 0){
+      Serial.print("Charging Mode");
+     } 
+       else{
+       Serial.print("Heating Mode");     //Sebelum battery Li-Ion boleh di charge harus dipanaskan jika memang disuhu rendah <10 C
+      }
+}
