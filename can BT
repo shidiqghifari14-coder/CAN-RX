@@ -93,7 +93,7 @@ void handleBTInput(){
 }
 
 void setup() {
-  BT.begin(115200);
+  Serial.begin(115200);
   delay(1000);
   
   BT.println("CAN Bus Started");
